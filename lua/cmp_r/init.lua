@@ -1,5 +1,5 @@
 local cmp = require("cmp")
-local send_to_nvimcom = require("r.run").send_to_nvimcom
+local send_to_nvimcom
 
 local source = {}
 
@@ -59,7 +59,12 @@ source.new = function()
     return self
 end
 
-source.setup = function(opts) options = vim.tbl_extend("force", options, opts or {}) end
+source.setup = function(opts)
+    options = vim.tbl_extend("force", options, opts or {})
+    pcall(function ()
+        send_to_nvimcom = require("r.run").send_to_nvimcom
+    end)
+end
 
 source.get_keyword_pattern = function()
     return "[`\\._@\\$:_[:digit:][:lower:][:upper:]\\u00FF-\\uFFFF]*"
@@ -616,7 +621,7 @@ source.complete = function(_, request, callback)
 
         if snm == "rString" then return nil end
 
-        if vim.g.R_Nvim_status < 5 then
+        if vim.g.R_Nvim_status < 7 then
             -- Get the arguments of the first function whose name matches nra.fnm
             if nra.lib then
                 send_to_nrs(
