@@ -59,6 +59,8 @@ local find_quarto_intel = function()
     return find_quarto_intel_unix(qpath2)
 end
 
+local M = {}
+
 M.get_cell_opts = function(qmd_intel)
     local qopts = {}
     local quarto_yaml_intel
