@@ -1,6 +1,6 @@
 # cmp-r
 
-Completion source for [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) using [R.nvim](https://github.com/jalvesaq/Nvim-R) as backend.
+Completion source for [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) using [R.nvim](https://github.com/R-nvim/R.nvim) as backend.
 
 ## Installation
 

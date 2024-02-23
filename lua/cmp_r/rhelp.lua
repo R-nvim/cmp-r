@@ -122,7 +122,7 @@ local rhelp_opts = {
     "\\zeta",
 }
 
-M = {}
+local M = {}
 
 M.get_keys = function()
     local rhopts = {}
