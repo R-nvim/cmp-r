@@ -30,10 +30,7 @@ require'cmp'.setup {
 
 
   - `doc_width`: The expected maximum width of the floating documentation
-    window. This value is used to format the usage section of function
-    documentation. Arguments are concatenated, but line breaks are inserted
-    between arguments before the line reaches the number of columns defined by
-    `doc_width`. Default: `58`.
+    window. Valid values are between `30` and `160`. Default: `58`.
 
     See also the option `maxwidth` in [lspkind.nvim](https://github.com/onsails/lspkind.nvim).
 

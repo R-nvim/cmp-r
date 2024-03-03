@@ -1,11 +1,9 @@
 local cmp = require("cmp")
 local send_to_nvimcom
 
-local source = {}
-
-local last_compl_item = nil
-local cb_cmp = nil
-local cb_inf = nil
+local last_compl_item
+local cb_cmp
+local cb_rsv
 local compl_id = 0
 local ter = nil
 local qcell_opts = nil
@@ -14,7 +12,7 @@ local rhelp_keys = nil
 
 -- Translate symbols added by nvimcom to LSP kinds
 local kindtbl = {
-    ["f"] = cmp.lsp.CompletionItemKind.Function, -- function
+    ["("] = cmp.lsp.CompletionItemKind.Function, -- function
     ["$"] = cmp.lsp.CompletionItemKind.Struct, -- data.frame
     ["%"] = cmp.lsp.CompletionItemKind.Method, -- logical
     ["~"] = cmp.lsp.CompletionItemKind.Text, -- character
@@ -27,7 +25,7 @@ local kindtbl = {
     ["&"] = cmp.lsp.CompletionItemKind.Event, -- promise
     ["l"] = cmp.lsp.CompletionItemKind.Module, -- library
     ["a"] = cmp.lsp.CompletionItemKind.Variable, -- function argument
-    ["v"] = cmp.lsp.CompletionItemKind.Field, -- data.frame column
+    ["c"] = cmp.lsp.CompletionItemKind.Field, -- data.frame column
     ["*"] = cmp.lsp.CompletionItemKind.TypeParameter, -- other
 }
 
@@ -54,38 +52,11 @@ local send_to_nrs = function(msg)
     end
 end
 
-source.new = function()
-    local self = setmetatable({}, { __index = source })
-    return self
-end
-
-source.setup = function(opts)
-    options = vim.tbl_extend("force", options, opts or {})
-    pcall(function ()
-        send_to_nvimcom = require("r.run").send_to_nvimcom
-    end)
-end
-
-source.get_keyword_pattern = function()
-    return "[`\\._@\\$:_[:digit:][:lower:][:upper:]\\u00FF-\\uFFFF]*"
-end
-
-source.get_trigger_characters = function() return { " ", ":", "(", '"', "@", "$" } end
-
-source.get_debug_name = function() return "cmp_r" end
-
-source.is_available = function()
-    for _, v in pairs(options.filetypes) do
-        if vim.bo.filetype == v then return true end
-    end
-    return false
-end
-
 local fix_doc = function(txt)
-    -- The rnvimserver replaces ' with \019 and \n with \020.
-    -- We have to revert this:
+    -- The rnvimserver replaces ' with \019 and \n with \020. We have to revert this:
     txt = string.gsub(txt, "\020", "\n")
     txt = string.gsub(txt, "\019", "'")
+    txt = string.gsub(txt, "\018", "\\")
     return txt
 end
 
@@ -115,250 +86,6 @@ local backtick = function(s)
         table.insert(t3, table.concat(t2, "@"))
     end
     return table.concat(t3, "$")
-end
-
-local format_usage = function(fname, u)
-    local fmt = "\n---\n\n```r\n"
-    local line = fname .. "("
-    local a
-
-    for k, v in pairs(u) do
-        if #v == 1 then
-            a = v[1]
-        elseif #v == 2 then
-            a = v[1] .. " = " .. v[2]
-        end
-
-        -- a will be nil if u is an empty table
-        if a then
-            if k < #u then a = a .. ", " end
-            if (#line + #a) > options.doc_width then
-                fmt = fmt .. line .. "\n"
-                line = "  "
-            end
-            line = line .. a
-        end
-    end
-    fmt = fmt .. line .. ")\n```\n"
-    return fmt
-end
-
-source.finish_ge_fun_args = function(u)
-    -- FIXME: rnvimserver should pass a Lua table, not a string defining a VimScript
-    -- dictionary.
-    u = string.gsub(u, "\020", "\n")
-    u = string.gsub(u, "\019", "\\'")
-    u = string.gsub(u, "\005", '\\"')
-    u = string.gsub(u, "\018", "'")
-    last_compl_item.documentation.value = last_compl_item.documentation.value
-        .. format_usage(last_compl_item.label, vim.fn.eval("[" .. fix_doc(u) .. "]"))
-    cb_inf({ items = { last_compl_item } })
-end
-
-source.finish_summary = function(s)
-    s = fix_doc(s)
-    last_compl_item.documentation.value = last_compl_item.documentation.value .. s
-    cb_inf({ items = { last_compl_item } })
-end
-
-source.finish_get_args = function(a)
-    last_compl_item.documentation.value = fix_doc(a)
-    cb_inf({ items = { last_compl_item } })
-end
-
-source.resolve = function(_, completion_item, callback)
-    cb_inf = callback
-    last_compl_item = completion_item
-
-    if completion_item.user_data and
-        completion_item.user_data.cls
-        and completion_item.user_data.cls == "a"
-        and completion_item.user_data.pkg
-        and completion_item.user_data.pkg == ".GlobalEnv" then
-        callback(completion_item)
-        return
-    end
-
-    if completion_item.user_data then
-        if completion_item.user_data.env then
-            completion_item.user_data.pkg = completion_item.user_data.env
-        end
-        if completion_item.user_data.pkg == ".GlobalEnv" then
-            if completion_item.user_data.cls then
-                if completion_item.user_data.cls == "v" then
-                    send_to_nvimcom(
-                        "E",
-                        "nvimcom:::nvim.get.summary("
-                            .. completion_item.user_data.word
-                            .. ", 59)"
-                    )
-                    return nil
-                elseif
-                    completion_item.user_data.cls == "{"
-                    or completion_item.user_data.cls == "!"
-                    or completion_item.user_data.cls == "%"
-                    or completion_item.user_data.cls == "~"
-                then
-                    send_to_nvimcom(
-                        "E",
-                        "nvimcom:::nvim.get.summary(" .. completion_item.label .. ", 59)"
-                    )
-                    return nil
-                elseif completion_item.user_data.cls == "f" then
-                    send_to_nvimcom(
-                        "E",
-                        'nvimcom:::nvim.GlobalEnv.fun.args("'
-                            .. completion_item.label
-                            .. '")'
-                    )
-                    return nil
-                end
-            end
-        else
-            if completion_item.user_data.cls and completion_item.user_data.cls == "A" then
-                -- Show arguments documentation when R isn't running
-                completion_item.documentation.value =
-                    fix_doc(completion_item.user_data.argument)
-                send_to_nrs(
-                    "7"
-                        .. completion_item.user_data.pkg
-                        .. "\002"
-                        .. completion_item.user_data.fnm
-                        .. "\002"
-                        .. completion_item.user_data.itm
-                        .. "\n"
-                )
-            elseif
-                completion_item.user_data.cls
-                and completion_item.user_data.cls == "a"
-                and completion_item.user_data.argument
-            then
-                -- Show arguments documentation when R is running
-                completion_item.documentation.value =
-                    fix_doc(completion_item.user_data.argument)
-                callback(completion_item)
-            elseif
-                completion_item.user_data.cls and completion_item.user_data.cls == "l"
-            then
-                local txt = "**"
-                    .. completion_item.user_data.ttl
-                    .. "**\n\n"
-                    .. completion_item.user_data.descr
-                completion_item.documentation.value = fix_doc(txt)
-                callback(completion_item)
-            else
-                send_to_nrs(
-                    "6"
-                        .. completion_item.label
-                        .. "\002"
-                        .. completion_item.user_data.pkg
-                        .. "\n"
-                )
-            end
-            return nil
-        end
-    end
-    callback(completion_item)
-end
-
-source.complinfo = function(info)
-    local doc
-    if last_compl_item.documentation and last_compl_item.documentation.value then
-        doc = last_compl_item.documentation.value .. "\n\n"
-    else
-        doc = ""
-    end
-    if info.ttl and info.ttl ~= "" then doc = doc .. "**" .. info.ttl .. "**\n" end
-    if info.descr and info.descr ~= "" then doc = doc .. "\n" .. info.descr .. "\n" end
-    if info.cls == "f" and info.usage then
-        doc = doc .. format_usage(info.word, info.usage)
-    end
-    local resp = last_compl_item
-    resp.documentation = { kind = cmp.lsp.MarkupKind.Markdown, value = fix_doc(doc) }
-    cb_inf({ items = { resp } })
-end
-
-source.asynccb = function(cid, compl)
-    if cid ~= compl_id then return nil end
-
-    local resp = {}
-    for _, v in pairs(compl) do
-        local kind = cmp.lsp.CompletionItemKind.TypeParameter
-        local stxt = ""
-
-        -- Completion of function arguments
-        if v.args then
-            for _, b in pairs(v.args) do
-                local lbl = ""
-                if #b == 2 then
-                    lbl = b[1] .. " = "
-                else
-                    lbl = b[1]
-                end
-                table.insert(resp, {
-                    label = lbl,
-                    kind = kindtbl["a"],
-                    sortText = "0",
-                    user_data = {
-                        cls = "A",
-                        pkg = v.pkg,
-                        fnm = v.fnm,
-                        itm = b[1],
-                        argument = "Not yet",
-                    },
-                    textEdit = { newText = lbl, range = ter },
-                    documentation = {
-                        kind = cmp.lsp.MarkupKind.Markdown,
-                        value = "",
-                    },
-                })
-            end
-        elseif v.user_data then
-            if v.user_data.cls then
-                if kindtbl[v.user_data.cls] then kind = kindtbl[v.user_data.cls] end
-                if v.user_data.cls == "a" then
-                    stxt = "0"
-                else
-                    stxt = "9"
-                end
-            end
-            local wrd = string.gsub(v["word"], "\019", "'")
-            wrd = backtick(wrd)
-            local menu = v.menu and fix_doc(v.menu) or ""
-            table.insert(resp, {
-                label = wrd,
-                kind = kind,
-                user_data = v.user_data,
-                sortText = stxt,
-                textEdit = { newText = wrd, range = ter },
-                documentation = {
-                    kind = cmp.lsp.MarkupKind.Markdown,
-                    value = menu
-                },
-            })
-        elseif v.word then
-            -- FIXME: delete this block?
-            vim.notify("DONT DELETE ME")
-            local wrd = string.gsub(v["word"], "\019", "'")
-            wrd = backtick(wrd)
-            if v.menu then
-                table.insert(resp, {
-                    label = wrd,
-                    textEdit = { newText = wrd, range = ter },
-                    documentation = {
-                        value = fix_doc(v.menu)
-                    },
-                    user_data = v.user_data,
-                })
-            else
-                table.insert(resp, {
-                    label = wrd,
-                    textEdit = { newText = wrd, range = ter },
-                })
-            end
-        end
-    end
-    cb_cmp(resp)
 end
 
 local get_piped_obj
@@ -476,9 +203,111 @@ local need_R_args = function(line, lnum)
     return resp
 end
 
+local source = {}
+
+source.new = function()
+    local self = setmetatable({}, { __index = source })
+    return self
+end
+
+source.setup = function(opts)
+    options = vim.tbl_extend("force", options, opts or {})
+    if options.doc_width < 30 or options.doc_width > 160 then options.doc_width = 58 end
+    vim.env.CMPR_DOC_WIDTH = tostring(options.doc_width)
+end
+
+source.get_keyword_pattern = function()
+    return "[`\\._@\\$:_[:digit:][:lower:][:upper:]\\u00FF-\\uFFFF]*"
+end
+
+source.get_trigger_characters = function() return { " ", ":", "(", '"', "@", "$" } end
+
+source.get_debug_name = function() return "cmp_r" end
+
+source.is_available = function()
+    for _, v in pairs(options.filetypes) do
+        if vim.bo.filetype == v then return true end
+    end
+    return false
+end
+
+source.resolve = function(_, cmpl_item, callback)
+    cb_rsv = callback
+    last_compl_item = cmpl_item
+
+    if not cmpl_item.cls then
+        callback(cmpl_item)
+        return nil
+    end
+
+    if cmpl_item.env == ".GlobalEnv" then
+        if cmpl_item.cls == "a" then
+            callback(cmpl_item)
+        elseif
+            cmpl_item.cls == "!"
+            or cmpl_item.cls == "%"
+            or cmpl_item.cls == "~"
+            or cmpl_item.cls == "{"
+        then
+            send_to_nvimcom(
+                "E",
+                "nvimcom:::nvim.get.summary("
+                    .. cmpl_item.label
+                    .. ", '"
+                    .. cmpl_item.env
+                    .. "')"
+            )
+        elseif cmpl_item.cls == "(" then
+            send_to_nvimcom(
+                "E",
+                'nvimcom:::nvim.GlobalEnv.fun.args("' .. cmpl_item.label .. '")'
+            )
+        else
+            send_to_nvimcom(
+                "E",
+                "nvimcom:::nvim.min.info("
+                    .. cmpl_item.label
+                    .. ", '"
+                    .. cmpl_item.env
+                    .. "')"
+            )
+        end
+        return nil
+    end
+
+    -- Column of data.frame for fun_data_1 or fun_data_2
+    if cmpl_item.cls == "c" then
+        send_to_nvimcom(
+            "E",
+            "nvimcom:::nvim.get.summary("
+                .. cmpl_item.env
+                .. "$"
+                .. cmpl_item.label
+                .. ", '"
+                .. cmpl_item.env
+                .. "')"
+        )
+    end
+
+    if cmpl_item.cls == "a" then
+        local itm = cmpl_item.label:gsub(" = ", "")
+        send_to_nrs("7" .. cmpl_item.env .. "\002" .. itm .. "\n")
+    elseif cmpl_item.cls == "l" then
+        cmpl_item.documentation = {
+            value = fix_doc(cmpl_item.env),
+            kind = cmp.lsp.MarkupKind.Markdown,
+        }
+        callback(cmpl_item)
+    else
+        send_to_nrs("6" .. cmpl_item.label .. "\002" .. cmpl_item.env .. "\n")
+    end
+end
+
 source.complete = function(_, request, callback)
     if not vim.g.R_Nvim_status or vim.g.R_Nvim_status < 3 then return end
     cb_cmp = callback
+
+    if not send_to_nvimcom then send_to_nvimcom = require("r.run").send_to_nvimcom end
 
     -- Check if this is Rmd and the cursor is in the chunk header
     if
@@ -675,6 +504,39 @@ source.complete = function(_, request, callback)
     send_to_nrs("5" .. compl_id .. "\003" .. wrd .. "\n")
 
     return nil
+end
+
+---Callback function for source.resolve(). When cmp_r doesn't have the necessary
+---data for resolving the completion (which happens in most cases), it request
+---the data to rnvimserver which calls back this function.
+---@param txt string The text almost ready to be displayed.
+source.resolve_cb = function(txt)
+    local s = fix_doc(txt)
+    last_compl_item.documentation = { kind = cmp.lsp.MarkupKind.Markdown, value = s }
+    cb_rsv({ items = { last_compl_item } })
+end
+
+---Callback function for source.complete(). When cmp_r doesn't have the
+---necessary data for completion (which happens in most cases), it request the
+---completion data to rnvimserver which calls back this function.
+---@param cid number The completion ID.
+---@param compl table The completion data.
+source.complete_cb = function(cid, compl)
+    if cid ~= compl_id then return nil end
+
+    local resp = {}
+    for _, v in pairs(compl) do
+        local lbl = string.gsub(v.label, "\019", "'")
+        table.insert(resp, {
+            label = lbl,
+            env = v.env,
+            cls = v.cls,
+            kind = kindtbl[v.cls],
+            sortText = v.cls == "a" and "0" or "9",
+            textEdit = { newText = backtick(lbl), range = ter },
+        })
+    end
+    cb_cmp(resp)
 end
 
 return source
