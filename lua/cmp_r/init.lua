@@ -25,6 +25,7 @@ local kindtbl = {
     ["&"] = cmp.lsp.CompletionItemKind.Event, -- promise
     ["l"] = cmp.lsp.CompletionItemKind.Module, -- library
     ["a"] = cmp.lsp.CompletionItemKind.Variable, -- function argument
+    ["m"] = cmp.lsp.CompletionItemKind.Variable, -- function argument
     ["c"] = cmp.lsp.CompletionItemKind.Field, -- data.frame column
     ["*"] = cmp.lsp.CompletionItemKind.TypeParameter, -- other
 }
@@ -231,75 +232,65 @@ source.is_available = function()
     return false
 end
 
-source.resolve = function(_, cmpl_item, callback)
+source.resolve = function(_, citem, callback)
     cb_rsv = callback
-    last_compl_item = cmpl_item
+    last_compl_item = citem
 
-    if not cmpl_item.cls then
-        callback(cmpl_item)
+    if not citem.cls then
+        callback(citem)
         return nil
     end
 
-    if cmpl_item.env == ".GlobalEnv" then
-        if cmpl_item.cls == "a" then
-            callback(cmpl_item)
+    if citem.env == ".GlobalEnv" then
+        if citem.cls == "a" then
+            callback(citem)
         elseif
-            cmpl_item.cls == "!"
-            or cmpl_item.cls == "%"
-            or cmpl_item.cls == "~"
-            or cmpl_item.cls == "{"
+            citem.cls == "!"
+            or citem.cls == "%"
+            or citem.cls == "~"
+            or citem.cls == "{"
         then
             send_to_nvimcom(
                 "E",
-                "nvimcom:::nvim.get.summary("
-                    .. cmpl_item.label
-                    .. ", '"
-                    .. cmpl_item.env
-                    .. "')"
+                "nvimcom:::nvim.get.summary(" .. citem.label .. ", '" .. citem.env .. "')"
             )
-        elseif cmpl_item.cls == "(" then
+        elseif citem.cls == "(" then
             send_to_nvimcom(
                 "E",
-                'nvimcom:::nvim.GlobalEnv.fun.args("' .. cmpl_item.label .. '")'
+                'nvimcom:::nvim.GlobalEnv.fun.args("' .. citem.label .. '")'
             )
         else
             send_to_nvimcom(
                 "E",
-                "nvimcom:::nvim.min.info("
-                    .. cmpl_item.label
-                    .. ", '"
-                    .. cmpl_item.env
-                    .. "')"
+                "nvimcom:::nvim.min.info(" .. citem.label .. ", '" .. citem.env .. "')"
             )
         end
         return nil
     end
 
     -- Column of data.frame for fun_data_1 or fun_data_2
-    if cmpl_item.cls == "c" then
+    if citem.cls == "c" then
         send_to_nvimcom(
             "E",
             "nvimcom:::nvim.get.summary("
-                .. cmpl_item.env
+                .. citem.env
                 .. "$"
-                .. cmpl_item.label
+                .. citem.label
                 .. ", '"
-                .. cmpl_item.env
+                .. citem.env
                 .. "')"
         )
-    end
-
-    if cmpl_item.cls == "a" then
-        local itm = cmpl_item.label:gsub(" = ", "")
-        send_to_nrs("7" .. cmpl_item.env .. "\002" .. itm .. "\n")
-    elseif cmpl_item.cls == "l" then
-        cmpl_item.documentation = {
-            value = fix_doc(cmpl_item.env),
+    elseif citem.cls == "a" or citem.cls == "m" then
+        local itm = citem.label:gsub(" = ", "")
+        send_to_nrs("7" .. citem.env .. "\002" .. itm .. "\002" .. citem.cls .. "\n")
+    elseif citem.cls == "l" then
+        citem.documentation = {
+            value = fix_doc(citem.env),
             kind = cmp.lsp.MarkupKind.Markdown,
         }
-        callback(cmpl_item)
+        callback(citem)
     else
-        send_to_nrs("6" .. cmpl_item.label .. "\002" .. cmpl_item.env .. "\n")
+        send_to_nrs("6" .. citem.label .. "\002" .. citem.env .. "\n")
     end
 end
 
