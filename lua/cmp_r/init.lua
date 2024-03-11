@@ -25,7 +25,6 @@ local kindtbl = {
     ["&"] = cmp.lsp.CompletionItemKind.Event, -- promise
     ["l"] = cmp.lsp.CompletionItemKind.Module, -- library
     ["a"] = cmp.lsp.CompletionItemKind.Variable, -- function argument
-    ["m"] = cmp.lsp.CompletionItemKind.Variable, -- function argument
     ["c"] = cmp.lsp.CompletionItemKind.Field, -- data.frame column
     ["*"] = cmp.lsp.CompletionItemKind.TypeParameter, -- other
 }
@@ -280,9 +279,10 @@ source.resolve = function(_, citem, callback)
                 .. citem.env
                 .. "')"
         )
-    elseif citem.cls == "a" or citem.cls == "m" then
+    elseif citem.cls == "a" then
         local itm = citem.label:gsub(" = ", "")
-        send_to_nrs("7" .. citem.env .. "\002" .. itm .. "\002" .. citem.cls .. "\n")
+        local pf = vim.fn.split(citem.env, "\002")
+        send_to_nrs("7" .. pf[1] .. "\002" .. pf[2] .. "\002" .. itm .. "\n")
     elseif citem.cls == "l" then
         citem.documentation = {
             value = fix_doc(citem.env),
