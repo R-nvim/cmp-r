@@ -331,6 +331,13 @@ source.complete = function(_, request, callback)
                     or string.find(lines[i], "^---$")
                     or string.find(lines[i], "^%.%.%.$")
                 then
+                    local wrd =
+                        string.sub(request.context.cursor_before_line, request.offset)
+                    if wrd:find("^@") then
+                        local lbls = require("cmp_r.figtbl").get_labels(wrd)
+                        callback({ items = lbls })
+                        return
+                    end
                     return {}
                 end
             end
@@ -368,6 +375,7 @@ source.complete = function(_, request, callback)
                         rhelp_keys = require("cmp_r.rhelp").get_keys()
                     end
                     callback({ items = rhelp_keys })
+                    return
                 end
             end
         end
