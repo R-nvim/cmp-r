@@ -333,10 +333,11 @@ source.complete = function(_, request, callback)
                 then
                     local wrd =
                         string.sub(request.context.cursor_before_line, request.offset)
-                    if wrd:find("^@") then
+                    if wrd:find("^@[tf]") then
                         local lbls = require("cmp_r.figtbl").get_labels(wrd)
                         callback({ items = lbls })
-                        return
+                    elseif wrd == "@" then
+                        reset_r_compl()
                     end
                     return {}
                 end
