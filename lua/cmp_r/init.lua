@@ -214,6 +214,10 @@ source.setup = function(opts)
     options = vim.tbl_extend("force", options, opts or {})
     if options.doc_width < 30 or options.doc_width > 160 then options.doc_width = 58 end
     vim.env.CMPR_DOC_WIDTH = tostring(options.doc_width)
+    if vim.g.R_Nvim_status and vim.g.R_Nvim_status > 2 then
+        local job = require("r.job")
+        job.stdin("Server", "45" .. tostring(options.doc_width) .. "\n")
+    end
 end
 
 source.get_keyword_pattern = function()
