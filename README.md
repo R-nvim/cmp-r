@@ -28,11 +28,13 @@ require'cmp'.setup {
   - `filetypes`: The list of file types for which the source should be enabled.
     Default: `{'r', 'rmd', 'quarto', 'rnoweb', 'rhelp'}`
 
-
   - `doc_width`: The expected maximum width of the floating documentation
     window. Valid values are between `30` and `160`. Default: `58`.
 
     See also the option `maxwidth` in [lspkind.nvim](https://github.com/onsails/lspkind.nvim).
+
+  - `trigger_characters`: List of characters to trigger completion.
+    Default: `{ " ", ":", "(", '"', "@", "$" }`.
 
   - `fun_data_1`: List of functions that receive a `data.frame` as its first
     argument and for which the `data.frame`s columns names should be
@@ -68,7 +70,6 @@ very simple and would wrongly recognize `data` as the name of the
 ```r
 ggplot(data = my_data_frame, mapping = aes(
 ```
-
 
 ### nvim-cmp
 

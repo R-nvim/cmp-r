@@ -32,6 +32,7 @@ local kindtbl = {
 local options = {
     filetypes = { "r", "rmd", "quarto", "rnoweb", "rhelp" },
     doc_width = 58,
+    trigger_characters = { " ", ":", "(", '"', "@", "$" },
     fun_data_1 = { "select", "rename", "mutate", "filter" },
     fun_data_2 = { ggplot = { "aes" }, with = { "*" } },
     quarto_intel = nil,
@@ -224,7 +225,7 @@ source.get_keyword_pattern = function()
     return "[`\\._@\\$:_[:digit:][:lower:][:upper:]\\u00FF-\\uFFFF]*"
 end
 
-source.get_trigger_characters = function() return { " ", ":", "(", '"', "@", "$" } end
+source.get_trigger_characters = function() return options.trigger_characters end
 
 source.get_debug_name = function() return "cmp_r" end
 
