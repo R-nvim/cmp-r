@@ -294,6 +294,14 @@ source.resolve = function(_, citem, callback)
             kind = cmp.lsp.MarkupKind.Markdown,
         }
         callback(citem)
+    elseif
+        citem.label:find("%$")
+        and (citem.cls == "!" or citem.cls == "%" or citem.cls == "~" or citem.cls == "{")
+    then
+        send_to_nvimcom(
+            "E",
+            "nvimcom:::nvim.get.summary(" .. citem.label .. ", '" .. citem.env .. "')"
+        )
     else
         send_to_nrs("6" .. citem.label .. "\002" .. citem.env .. "\n")
     end
@@ -517,6 +525,9 @@ end
 ---@param txt string The text almost ready to be displayed.
 source.resolve_cb = function(txt)
     local s = fix_doc(txt)
+    if last_compl_item.def then
+        s = last_compl_item.label .. fix_doc(last_compl_item.def) .. "\n---\n" .. s
+    end
     last_compl_item.documentation = { kind = cmp.lsp.MarkupKind.Markdown, value = s }
     cb_rsv({ items = { last_compl_item } })
 end
@@ -536,6 +547,7 @@ source.complete_cb = function(cid, compl)
             label = lbl,
             env = v.env,
             cls = v.cls,
+            def = v.def or nil,
             kind = kindtbl[v.cls],
             sortText = v.cls == "a" and "0" or "9",
             textEdit = { newText = backtick(lbl), range = ter },
