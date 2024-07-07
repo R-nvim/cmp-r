@@ -294,6 +294,14 @@ source.resolve = function(_, citem, callback)
             kind = cmp.lsp.MarkupKind.Markdown,
         }
         callback(citem)
+    elseif
+        citem.label:find("%$")
+        and (citem.cls == "!" or citem.cls == "%" or citem.cls == "~" or citem.cls == "{")
+    then
+        send_to_nvimcom(
+            "E",
+            "nvimcom:::nvim.get.summary(" .. citem.label .. ", '" .. citem.env .. "')"
+        )
     else
         send_to_nrs("6" .. citem.label .. "\002" .. citem.env .. "\n")
     end
