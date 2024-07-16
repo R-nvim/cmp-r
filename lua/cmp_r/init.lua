@@ -333,8 +333,8 @@ source.complete = function(_, request, callback)
             true
         )
         local lnum = request.context.cursor.row
+        isr = false
         if request.context.filetype == "rmd" or request.context.filetype == "quarto" then
-            isr = false
             for i = lnum, 1, -1 do
                 if string.find(lines[i], "^```{%s*r") then
                     isr = true
@@ -356,7 +356,6 @@ source.complete = function(_, request, callback)
                 end
             end
         elseif request.context.filetype == "rnoweb" then
-            isr = false
             for i = lnum, 1, -1 do
                 if string.find(lines[i], "^%s*<<.*>>=") then
                     isr = true
@@ -366,7 +365,6 @@ source.complete = function(_, request, callback)
                 end
             end
         elseif request.context.filetype == "rhelp" then
-            isr = false
             for i = lnum, 1, -1 do
                 if string.find(lines[i], [[\%S+{]]) then
                     if
@@ -415,19 +413,28 @@ source.complete = function(_, request, callback)
     end
 
     -- check if the cursor is within comment or string
+    local snm = ""
     local c = vim.treesitter.get_captures_at_pos(
         0,
         request.context.cursor.row - 1,
         request.context.cursor.col - 2
     )
-    for _, v in pairs(c) do
-        if v.capture == "string" or v.capture == "comment" then return nil end
+    if #c > 0 then
+        for _, v in pairs(c) do
+            if v.capture == "string" then
+                snm = "rString"
+            elseif v.capture == "comment" then
+                return nil
+            end
+        end
+    else
+        -- We still need to call synIDattr because there is no treesitter parser for rhelp
+        snm = vim.fn.synIDattr(
+            vim.fn.synID(request.context.cursor.row, request.context.cursor.col - 1, 1),
+            "name"
+        )
+        if snm == "rComment" then return nil end
     end
-    local snm = vim.fn.synIDattr(
-        vim.fn.synID(request.context.cursor.row, request.context.cursor.col - 1, 1),
-        "name"
-    )
-    if snm == "rComment" then return nil end
 
     -- required by rnvimserver
     compl_id = compl_id + 1
