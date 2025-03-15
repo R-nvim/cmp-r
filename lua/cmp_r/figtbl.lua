@@ -6,37 +6,35 @@ local M = {}
 ---@param input string
 ---@return table
 M.get_labels = function(input)
+    local chunks = require("r.quarto").get_code_chunks(0)
+    if not chunks then return {} end
     local resp = {}
-
-    -- Get local labels
-    local lines = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, true)
-    local header = {}
-    for _, v in pairs(lines) do
-        if v:find("^#| ") then
-            if v:find("#| label: ") then
-                local lbl = v:gsub("#| label:%s*", ""):gsub("'", ""):gsub('"', "")
-                if lbl:find("^tbl") or lbl:find("^fig") then
-                    lbl = "@" .. lbl
-                    if lbl:find("^" .. input) then header.label = lbl end
-                end
-            elseif v:find("#| fig%-cap: ") or v:find("#| tbl%-cap: ") then
-                local cap = v:gsub("#| ...-cap:%s*", ""):gsub("'", ""):gsub('"', "")
-                header.caption = cap
-            end
-        else
-            if #header and header.label then
+    for _, c in pairs(chunks) do
+        if
+            c.comment_params.label
+            and (
+                c.comment_params.label:find("^fig") or c.comment_params.label:find("^tbl")
+            )
+        then
+            local lbl = "@" .. c.comment_params.label
+            local cap = nil
+            if lbl:find("^" .. input) then
                 local item = {
-                    label = header.label,
+                    label = lbl,
                     kind = cmp.lsp.CompletionItemKind.Reference,
                 }
-                if header.caption then
+                if c.comment_params["fig-cap"] then
+                    cap = c.comment_params["fig-cap"]
+                elseif c.comment_params["tbl-cap"] then
+                    cap = c.comment_params["tbl-cap"]
+                end
+                if cap then
                     item.documentation = {
                         kind = cmp.lsp.MarkupKind.Markdown,
-                        value = header.caption,
+                        value = cap,
                     }
                 end
                 table.insert(resp, item)
-                header = {}
             end
         end
     end
