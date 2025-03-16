@@ -324,8 +324,9 @@ source.complete = function(_, request, callback)
     end
 
     -- Check if the cursor is in R code
-    local isr = true
+    local lang = "r"
     if request.context.filetype ~= "r" then
+        lang = "other"
         local lines = vim.api.nvim_buf_get_lines(
             request.context.bufnr,
             0,
@@ -333,32 +334,22 @@ source.complete = function(_, request, callback)
             true
         )
         local lnum = request.context.cursor.row
-        isr = false
         if request.context.filetype == "rmd" or request.context.filetype == "quarto" then
-            for i = lnum, 1, -1 do
-                if string.find(lines[i], "^```{%s*r") then
-                    isr = true
-                    break
-                elseif
-                    string.find(lines[i], "^```$")
-                    or string.find(lines[i], "^---$")
-                    or string.find(lines[i], "^%.%.%.$")
-                then
-                    local wrd =
-                        string.sub(request.context.cursor_before_line, request.offset)
-                    if wrd:find("^@[tf]") then
-                        local lbls = require("cmp_r.figtbl").get_labels(wrd)
-                        callback({ items = lbls })
-                    elseif wrd == "@" then
-                        reset_r_compl()
-                    end
-                    return {}
+            lang = require("r.utils").get_lang()
+            if lang == "markdown_inline" then
+                local wrd = string.sub(request.context.cursor_before_line, request.offset)
+                if wrd == "@" then
+                    reset_r_compl()
+                elseif wrd:find("^@[tf]") then
+                    local lbls = require("cmp_r.figtbl").get_labels(wrd)
+                    callback({ items = lbls })
                 end
+                return {}
             end
         elseif request.context.filetype == "rnoweb" then
             for i = lnum, 1, -1 do
                 if string.find(lines[i], "^%s*<<.*>>=") then
-                    isr = true
+                    lang = "r"
                     break
                 elseif string.find(lines[i], "^@") then
                     return {}
@@ -371,12 +362,12 @@ source.complete = function(_, request, callback)
                         string.find(lines[i], [[\examples{]])
                         or string.find(lines[i], [[\usage{]])
                     then
-                        isr = true
+                        lang = "r"
                     end
                     break
                 end
             end
-            if not isr then
+            if lang ~= "r" then
                 local wrd = string.sub(request.context.cursor_before_line, request.offset)
                 if #wrd == 0 then
                     reset_r_compl()
@@ -393,10 +384,11 @@ source.complete = function(_, request, callback)
         end
     end
 
-    if not isr then return {} end
-
-    -- Is the current cursor position within YAML header of an R block of code?
-    if string.find(request.context.cursor_before_line, "^#| ") then
+    -- Is the current cursor position within the YAML header of an R or Python block of code?
+    if
+        (lang == "r" or lang == "python")
+        and string.find(request.context.cursor_before_line, "^#| ")
+    then
         if
             string.find(request.context.cursor_before_line, "^#| .*:")
             and not string.find(request.context.cursor_before_line, "^#| .*: !expr ")
@@ -411,6 +403,8 @@ source.complete = function(_, request, callback)
             return
         end
     end
+
+    if lang ~= "r" then return {} end
 
     -- check if the cursor is within comment or string
     local snm = ""
