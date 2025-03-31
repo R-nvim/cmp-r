@@ -39,7 +39,7 @@ local options = {
 }
 
 local reset_r_compl = function()
-    for _, v in pairs(cmp.core.sources) do
+    for _, v in pairs(cmp.core.sources or {}) do
         if v.name == "cmp_r" then
             v:reset()
             break
