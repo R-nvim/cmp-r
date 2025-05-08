@@ -1,11 +1,14 @@
 # cmp-r
 
-Completion source for [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) using [R.nvim](https://github.com/R-nvim/R.nvim) as backend.
+Completion source for [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) using
+[R.nvim](https://github.com/R-nvim/R.nvim) as backend.
 
 ## Installation
 
-Use a plugin manager such as [vim-plug](https://github.com/junegunn/vim-plug)
-or [packer](https://github.com/wbthomason/packer.nvim).
+Use a plugin manager such as [lazy.nvim](https://github.com/folke/lazy.nvim)
+and add `cmp-r` as a dependency of `nvim-cmp`. If you want to change any of
+`cmp-r` options, you could do it while configuring `nvim-cmp`.
+
 
 ## Setup
 
@@ -91,38 +94,9 @@ Anyway, I share below what worked best for me:
     and do not match the classes of R objects. So, it is better to hide the
     names and display only the symbols.
 
-An example following the above suggestions:
+There is a complete example of `nvim-cmp` configuration at the
+[Wiki](https://github.com/R-nvim/cmp-r/wiki).
 
-```lua
-cmp.setup({
-    formatting = {
-        fields = {'abbr', 'kind', 'menu'},
-        format = lspkind.cmp_format({
-            mode = 'symbol', -- show only symbol annotations
-            maxwidth = 50, -- prevent the popup from showing more than provided characters
-            ellipsis_char = '...', -- the truncated part when popup menu exceed maxwidth
-            before = function(entry, item)
-                local menu_icon = {
-                    nvim_lsp = '',
-                    vsnip = '',
-                    path = '',
-                    cmp_zotcite = 'z',
-                    cmp_r = 'R'
-                }
-                item.menu = menu_icon[entry.source.name]
-                return item
-            end,
-        })
-    },
-    sources = cmp.config.sources({
-        { name = 'vsnip' },
-        { name = 'cmp_zotcite' },
-        { name = 'cmp_r' },
-        { name = 'nvim_lsp' },
-        { name = 'path', option = { trailing_slash = true } },
-    }),
-})
-```
 ### languageserver
 
 Since `cmp-r` and the R package `languageserver` provide completions for
