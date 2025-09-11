@@ -21,6 +21,7 @@ local kindtbl = {
     [";"] = cmp.lsp.CompletionItemKind.Constructor, -- control
     ["["] = cmp.lsp.CompletionItemKind.Struct, -- list
     ["<"] = cmp.lsp.CompletionItemKind.Class, -- S4
+    [">"] = cmp.lsp.CompletionItemKind.Class, -- S7
     [":"] = cmp.lsp.CompletionItemKind.Interface, -- environment
     ["&"] = cmp.lsp.CompletionItemKind.Event, -- promise
     ["l"] = cmp.lsp.CompletionItemKind.Module, -- library
