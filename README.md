@@ -1,5 +1,8 @@
 # cmp-r
 
+> [!Note]
+> `R.nvim` now has a built-in language server and `cmp-r` is no longer used.
+
 Completion source for [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) using
 [R.nvim](https://github.com/R-nvim/R.nvim) as backend.
 
