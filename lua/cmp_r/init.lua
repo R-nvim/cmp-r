@@ -39,6 +39,17 @@ local options = {
     quarto_intel = nil,
 }
 
+local ndw = 0
+local deprecated_warning = function()
+    ndw = ndw + 1
+    if ndw > 3 then return end
+    vim.notify(
+        "Please, uninstall cmp-r. It's no longer used.",
+        vim.log.levels.WARN,
+        { title = "cmp-r" }
+    )
+end
+
 local reset_r_compl = function()
     for _, v in pairs(cmp.core.sources or {}) do
         if v.name == "cmp_r" then
@@ -213,6 +224,11 @@ source.new = function()
 end
 
 source.setup = function(opts)
+    local has_rls, _ = pcall(require, "r.lsp")
+    if has_rls then
+        deprecated_warning()
+        return
+    end
     options = vim.tbl_extend("force", options, opts or {})
     if options.doc_width < 30 or options.doc_width > 160 then options.doc_width = 58 end
     vim.env.CMPR_DOC_WIDTH = tostring(options.doc_width)
@@ -231,6 +247,11 @@ source.get_trigger_characters = function() return options.trigger_characters end
 source.get_debug_name = function() return "cmp_r" end
 
 source.is_available = function()
+    local has_rls, _ = pcall(require, "r.lsp")
+    if has_rls then
+        deprecated_warning()
+        return false
+    end
     for _, v in pairs(options.filetypes) do
         if vim.bo.filetype == v then return true end
     end
@@ -309,6 +330,13 @@ source.resolve = function(_, citem, callback)
 end
 
 source.complete = function(_, request, callback)
+    local has_rls, _ = pcall(require, "r.lsp")
+    if has_rls then
+        deprecated_warning()
+        callback({ items = {} })
+        return
+    end
+
     if not vim.g.R_Nvim_status or vim.g.R_Nvim_status < 3 then return end
     cb_cmp = callback
 
